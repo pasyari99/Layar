@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Layar: cari, tonton, simpan video bebas lisensi</title>
+<meta name="theme-color" content="#141c33">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+:root{--malam:#141c33;--malam2:#1f2a4a;--kain:#f2f4f9;--sorot:#ffd23f;--redup:#9eaac8}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{color-scheme:dark}
+body{margin:0;background:var(--malam);color:var(--kain);
+  font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+h1,h2,.t{font-family:"Avenir Next Condensed","Roboto Condensed","Arial Narrow",system-ui,sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--sorot);outline-offset:2px}
+
+/* Kain layar: satu-satunya bidang terang di halaman */
+.kain{background:var(--kain);color:var(--malam);padding:22px 16px 26px;
+  clip-path:polygon(0 0,100% 0,100% 100%,50% calc(100% - 8px),0 100%)}
+.kain :focus-visible{outline-color:var(--malam)}
+.kain>div{max-width:928px;margin:auto}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-size:2.9rem;line-height:.95;margin:0;letter-spacing:-.01em}
+.sub{margin:6px 0 16px;max-width:36ch}
+#f{display:flex;gap:8px}
+#q{flex:1;min-width:0;padding:12px;border:2px solid var(--malam);border-radius:3px;background:#fff;color:var(--malam)}
+#f button,#install{padding:12px 18px;border:2px solid var(--malam);border-radius:3px;background:var(--malam);color:var(--sorot);font-weight:600}
+#chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{padding:6px 12px;border:2px solid var(--malam);border-radius:3px;background:none;color:var(--malam)}
+.chip[aria-pressed="true"]{background:var(--malam);color:var(--kain)}
+
+main{max-width:960px;margin:auto;padding:8px 16px}
+.say{color:var(--redup);margin:18px 0;max-width:60ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(156px,1fr));gap:22px 14px;margin-top:18px}
+.card{display:block;padding:0;border:0;background:none;color:inherit;text-align:left}
+.thumb{display:block;position:relative;aspect-ratio:16/9;background:var(--malam2);overflow:hidden;border-radius:2px}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.tag{position:absolute;left:0;bottom:0;background:var(--sorot);color:var(--malam);font-size:.75rem;padding:2px 8px}
+.t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  font-size:1.1rem;font-weight:600;line-height:1.2;margin-top:8px}
+.m{display:block;color:var(--redup);font-size:.85rem;margin-top:2px}
+#more{display:block;margin:28px auto;padding:12px 22px;border:2px solid var(--kain);border-radius:3px;background:none;color:var(--kain)}
+
+.tabs{position:fixed;inset:auto 0 0 0;display:flex;background:var(--malam2);padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{flex:1;padding:16px 8px;border:0;border-top:3px solid transparent;background:none;color:var(--redup);font-weight:600}
+.tabs button[aria-current="true"]{color:var(--sorot);border-top-color:var(--sorot)}
+
+dialog{border:0;padding:0;background:var(--malam);color:var(--kain);width:min(100vw,860px);max-width:100vw;max-height:100dvh}
+dialog::backdrop{background:rgba(0,0,0,.8)}
+#stage{aspect-ratio:16/9;background:#000}
+#stage video,#stage iframe{width:100%;height:100%;border:0;display:block}
+.info{padding:16px}
+.info h2{margin:0;font-size:1.5rem;line-height:1.15}
+.note{color:var(--sorot);margin:10px 0 0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
+.row button,.row select,.row a{padding:10px 14px;border:2px solid var(--kain);border-radius:3px;background:none;color:var(--kain);text-decoration:none}
+.row select{background:var(--malam);max-width:100%}
+.row .primary{background:var(--sorot);border-color:var(--sorot);color:var(--malam);font-weight:600}
+progress{width:100%;margin-top:14px;accent-color:var(--sorot)}
+</style>
+</head>
+<body>
+
+<header class="kain"><div>
+  <div class="top">
+    <h1>Layar</h1>
+    <button id="install" hidden>Pasang aplikasi</button>
+  </div>
+  <p class="sub">Video bebas lisensi dari arsip terbuka. Cari, tonton, simpan untuk ditonton tanpa internet.</p>
+  <form id="f" role="search">
+    <input id="q" type="search" placeholder="Cari judul atau topik" aria-label="Cari video" autocomplete="off" required>
+    <button>Cari</button>
+  </form>
+  <div id="chips" aria-label="Sumber video"></div>
+</div></header>
+
+<main>
+  <section id="cari">
+    <p id="status" class="say">Ketik kata kunci, misalnya “gamelan”, “Jakarta 1930”, atau “big buck bunny”.</p>
+    <div id="grid" class="grid"></div>
+    <button id="more" hidden>Muat hasil berikutnya</button>
+  </section>
+  <section id="unduhan" hidden>
+    <p id="libempty" class="say">Belum ada unduhan. Buka sebuah video lalu pilih “Simpan offline”.</p>
+    <p id="quota" class="say"></p>
+    <div id="libgrid" class="grid"></div>
+  </section>
+</main>
+
+<nav class="tabs" aria-label="Halaman">
+  <button data-tab="cari" aria-current="true">Cari</button>
+  <button data-tab="unduhan" aria-current="false">Unduhan</button>
+</nav>
+
+<dialog id="player" aria-labelledby="p-title">
+  <div id="stage"></div>
+  <div class="info">
+    <h2 id="p-title"></h2>
+    <span id="p-meta" class="m"></span>
+    <p id="p-note" class="note" role="status"></p>
+    <div class="row">
+      <select id="p-q" aria-label="Kualitas berkas" hidden></select>
+      <button id="p-save" class="primary" hidden>Simpan offline</button>
+      <button id="p-export" hidden>Ekspor ke perangkat</button>
+      <button id="p-del" hidden>Hapus unduhan</button>
+    </div>
+    <progress id="p-prog" max="1" hidden></progress>
+    <div class="row">
+      <a id="p-page" target="_blank" rel="noopener">Buka halaman sumber</a>
+      <button id="p-close">Tutup</button>
+    </div>
+  </div>
+</dialog>
+
+<script type="module">
+const MEDIA = 'layar-media-v1';              // harus sama dengan di sw.js
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const strip = h => new DOMParser().parseFromString(h || '', 'text/html').body.textContent.trim();
+const size = b => !b ? '' : b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(b / 1e6)) + ' MB';
+const ext = m => /webm/.test(m) ? '.webm' : /ogg/.test(m) ? '.ogv' : '.mp4';
+const getJSON = async u => { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); };
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+};
+const licenseName = u => {
+  if (!u) return '';
+  if (/publicdomain/.test(u)) return 'Domain publik';
+  const m = /licenses\/([a-z-]+)\/([\d.]+)/.exec(u);
+  return m ? `CC ${m[1].toUpperCase()} ${m[2]}` : '';
+};
+
+/* ---------- Sumber video. Tambah sumber baru = tambah satu objek di sini. ----------
+   search(q, page) -> [{id, src, title, by, thumb, page, license, ...}]
+   resolve(item)   -> {files:[{label,url,size,mime}], embed?, note?}                  */
+const PROVIDERS = {
+  ia: {
+    name: 'Internet Archive',
+    async search(q, page) {
+      const u = new URL('https://archive.org/advancedsearch.php');
+      u.searchParams.set('q', `(${q.replace(/[^\p{L}\p{N}\s]/gu, ' ')}) AND mediatype:(movies)`);
+      for (const f of ['identifier', 'title', 'creator', 'licenseurl']) u.searchParams.append('fl[]', f);
+      u.searchParams.append('sort[]', 'downloads desc');
+      u.searchParams.set('rows', 20); u.searchParams.set('page', page); u.searchParams.set('output', 'json');
+      const j = await getJSON(u);
+      return j.response.docs.map(d => ({
+        id: 'ia:' + d.identifier, src: 'ia', ref: d.identifier,
+        title: String([].concat(d.title || d.identifier)[0]),
+        by: [].concat(d.creator || []).join(', '),
+        thumb: `https://archive.org/services/img/${d.identifier}`,
+        page: `https://archive.org/details/${d.identifier}`,
+        license: licenseName(d.licenseurl)
+      }));
+    },
+    async resolve(it) {
+      const j = await getJSON(`https://archive.org/metadata/${it.ref}`);
+      const files = (j.files || [])
+        .filter(f => /\.(mp4|webm)$/i.test(f.name) && f.private !== 'true')
+        .map(f => ({
+          label: (f.format || 'Video') + (f.height ? ` ${f.height}p` : ''),
+          url: `https://archive.org/download/${it.ref}/${f.name.split('/').map(encodeURIComponent).join('/')}`,
+          size: +f.size || 0,
+          mime: /\.webm$/i.test(f.name) ? 'video/webm' : 'video/mp4'
+        }))
+        .sort((a, b) => a.size - b.size);
+      return { files, note: files.length ? '' : 'Item ini tidak punya berkas MP4 atau WebM yang terbuka.' };
+    }
+  },
+
+  commons: {
+    name: 'Wikimedia Commons',
+    async search(q, page) {
+      const u = new URL('https://commons.wikimedia.org/w/api.php');
+      const p = { action: 'query', format: 'json', origin: '*', generator: 'search', gsrnamespace: 6,
+        gsrlimit: 20, gsroffset: (page - 1) * 20, gsrsearch: `filetype:video ${q}`,
+        prop: 'imageinfo', iiprop: 'url|size|mime|extmetadata', iiurlwidth: 480 };
+      for (const [k, v] of Object.entries(p)) u.searchParams.set(k, v);
+      const j = await getJSON(u);
+      return Object.values(j.query?.pages || {}).sort((a, b) => a.index - b.index).map(pg => {
+        const i = pg.imageinfo?.[0]; if (!i) return null;
+        const m = i.extmetadata || {};
+        return {
+          id: 'commons:' + pg.pageid, src: 'commons',
+          title: pg.title.replace(/^File:/, '').replace(/\.\w+$/, ''),
+          by: strip(m.Artist?.value), thumb: i.thumburl, page: i.descriptionurl,
+          license: m.LicenseShortName?.value || '',
+          files: [{ label: 'Berkas asli', url: i.url, size: i.size, mime: i.mime }]
+        };
+      }).filter(Boolean);
+    },
+    async resolve(it) { return { files: it.files }; }
+  },
+
+  peertube: {
+    name: 'PeerTube',
+    async search(q, page) {
+      const u = new URL('https://sepiasearch.org/api/v1/search/videos');
+      const p = { search: q, count: 20, start: (page - 1) * 20, nsfw: 'false' };
+      for (const [k, v] of Object.entries(p)) u.searchParams.set(k, v);
+      const j = await getJSON(u);
+      return (j.data || []).map(v => ({
+        id: 'pt:' + v.uuid, src: 'peertube', ref: v.uuid, host: new URL(v.url).host,
+        title: v.name, by: v.channel?.displayName || v.account?.displayName || '',
+        thumb: v.thumbnailUrl, page: v.url, license: v.licence?.label || '', embed: v.embedUrl
+      }));
+    },
+    async resolve(it) {
+      const v = await getJSON(`https://${it.host}/api/v1/videos/${it.ref}`);
+      const raw = [...(v.files || []), ...(v.streamingPlaylists || []).flatMap(p => p.files || [])];
+      const files = v.downloadEnabled === false ? [] : raw
+        .filter(f => f.fileDownloadUrl && f.resolution?.id > 0)
+        .map(f => ({ label: f.resolution.label, url: f.fileDownloadUrl, size: f.size || 0, mime: 'video/mp4' }))
+        .sort((a, b) => a.size - b.size);
+      return {
+        files,
+        embed: /^https:\/\//.test(it.embed || '') ? it.embed : '',
+        note: v.downloadEnabled === false ? 'Kreator mematikan unduhan untuk video ini. Tetap bisa ditonton.' : ''
+      };
+    }
+  }
+};
+
+/* ---------- State ---------- */
+let lib = store.get('lib', []);
+let on = store.get('src', Object.keys(PROVIDERS)).filter(k => PROVIDERS[k]);
+let query = '', page = 1, results = [];
+let current = null, files = [], embedded = false, abort = null;
+
+const say = t => { $('#status').textContent = t; $('#status').hidden = !t; };
+const note = t => { $('#p-note').textContent = t; $('#p-note').hidden = !t; };
+
+/* ---------- Daftar ---------- */
+const card = (it, i, saved) => `<button class="card" data-i="${i}">
+  <span class="thumb">${it.thumb ? `<img src="${esc(it.thumb)}" alt="" loading="lazy" onerror="this.remove()">` : ''}${saved ? '<span class="tag">Tersimpan</span>' : ''}</span>
+  <span class="t">${esc(it.title)}</span>
+  ${it.by ? `<span class="m">${esc(it.by)}</span>` : ''}
+  <span class="m">${esc(PROVIDERS[it.src]?.name || '')}${it.license ? ', ' + esc(it.license) : ''}</span>
+</button>`;
+
+function drawChips() {
+  $('#chips').innerHTML = Object.entries(PROVIDERS).map(([k, p]) =>
+    `<button type="button" class="chip" data-src="${k}" aria-pressed="${on.includes(k)}">${p.name}</button>`).join('');
+}
+function drawResults() {
+  $('#grid').innerHTML = results.map((it, i) => card(it, i, lib.some(l => l.id === it.id))).join('');
+}
+function drawLib() {
+  $('#libgrid').innerHTML = lib.map((it, i) => card({ ...it, thumb: it.localThumb }, i, true)).join('');
+  $('#libempty').hidden = lib.length > 0;
+  $('#quota').textContent = '';
+  if (lib.length) navigator.storage?.estimate?.().then(e =>
+    $('#quota').textContent = `Terpakai ${size(e.usage)} dari kira-kira ${size(e.quota)} yang tersedia.`);
+}
+function tab(name) {
+  for (const s of ['cari', 'unduhan']) $('#' + s).hidden = s !== name;
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab === name));
+  if (name === 'unduhan') drawLib();
+}
+
+async function search(more) {
+  if (!query) return;
+  if (!navigator.onLine) return say('Tidak ada koneksi. Video yang sudah disimpan ada di tab Unduhan.');
+  if (more) page++; else { page = 1; results = []; drawResults(); }
+  $('#more').hidden = true;
+  say('Mencari…');
+  const keys = on.length ? on : Object.keys(PROVIDERS);
+  const out = await Promise.allSettled(keys.map(k => PROVIDERS[k].search(query, page)));
+  const lists = out.map(o => o.status === 'fulfilled' ? o.value : []);
+  const failed = keys.filter((k, i) => out[i].status === 'rejected').map(k => PROVIDERS[k].name);
+  for (let i = 0; lists.some(l => l[i]); i++) for (const l of lists) if (l[i]) results.push(l[i]);  // selang-seling antar sumber
+  drawResults();
+  say(failed.length ? `Sumber ini gagal dimuat: ${failed.join(', ')}. Coba lagi sebentar lagi.`
+    : results.length ? '' : 'Tidak ada hasil. Coba kata kunci lain; bahasa Inggris biasanya lebih banyak hasilnya.');
+  $('#more').hidden = !lists.some(l => l.length);
+}
+
+/* ---------- Pemutar ---------- */
+function playUrl(url) {
+  $('#stage').innerHTML = '<video controls playsinline autoplay></video>';
+  $('#stage video').src = url;
+}
+function setMode(saved) {
+  $('#p-q').hidden = $('#p-save').hidden = !!saved || !files.length;
+  $('#p-export').hidden = $('#p-del').hidden = !saved;
+}
+async function playSaved(s) {
+  if (navigator.serviceWorker?.controller) return playUrl(s.key);   // dilayani sw.js, mendukung seek
+  const r = await (await caches.open(MEDIA)).match(s.key);
+  if (r) playUrl(URL.createObjectURL(await r.blob()));
+  else note('Berkas offline tidak ditemukan. Hapus unduhan ini lalu simpan ulang.');
+}
+async function show(it) {
+  current = it; files = []; embedded = false;
+  $('#p-title').textContent = it.title;
+  $('#p-meta').textContent = [it.by, PROVIDERS[it.src]?.name, it.license].filter(Boolean).join(', ');
+  $('#p-page').href = it.page;
+  $('#stage').innerHTML = '';
+  note('');
+  const saved = lib.find(l => l.id === it.id);
+  setMode(saved);
+  $('#player').showModal();
+  if (saved) return playSaved(saved);
+  if (!navigator.onLine) return note('Tidak ada koneksi, dan video ini belum disimpan.');
+  try {
+    const r = await PROVIDERS[it.src].resolve(it);
+    if (current !== it) return;
+    files = r.files;
+    $('#p-q').innerHTML = files.map((f, i) =>
+      `<option value="${i}">${esc(f.label)}${f.size ? ', ' + size(f.size) : ''}</option>`).join('');
+    const pick = Math.max(0, files.findLastIndex(f => f.size && f.size <= 3e8));   // terbesar yang masih di bawah 300 MB
+    $('#p-q').value = pick;
+    setMode(null);
+    if (r.embed) {
+      embedded = true;
+      $('#stage').innerHTML = `<iframe src="${esc(r.embed)}" title="Pemutar video" allow="fullscreen; autoplay" allowfullscreen sandbox="allow-scripts allow-same-origin allow-popups"></iframe>`;
+    } else if (files.length) playUrl(files[pick].url);
+    note(r.note || (files.length ? '' : 'Sumber ini tidak menyediakan berkas untuk diunduh.'));
+  } catch (e) {
+    if (current === it) note(`Video gagal dimuat (${e.message}). Coba buka halaman sumbernya.`);
+  }
+}
+
+async function save() {
+  if (abort) return abort.abort();                       // tombol yang sama berfungsi sebagai "Batalkan"
+  const it = current, f = files[$('#p-q').value];
+  if (!it || !f) return;
+  const sid = it.id.replace(/[^\w-]/g, '_');
+  const key = new URL('v/' + sid, location.href).href;
+  const prog = $('#p-prog'), btn = $('#p-save');
+  const ac = abort = new AbortController();
+  btn.textContent = 'Batalkan'; prog.hidden = false; prog.removeAttribute('value'); note('');
+  const cache = await caches.open(MEDIA);
+  try {
+    await navigator.storage?.persist?.();
+    const res = await fetch(f.url, { signal: ac.signal });
+    if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
+    const total = +res.headers.get('content-length') || f.size || 0;
+    let got = 0;
+    const meter = new TransformStream({
+      transform(chunk, ctl) { got += chunk.byteLength; if (total) prog.value = Math.min(1, got / total); ctl.enqueue(chunk); }
+    });
+    // Dialirkan langsung ke Cache Storage, jadi video besar tidak menumpuk di memori
+    await cache.put(key, new Response(res.body.pipeThrough(meter), { headers: { 'Content-Type': f.mime || 'video/mp4' } }));
+    let localThumb = '';
+    try {
+      const t = await fetch(it.thumb);
+      if (t.ok) { localThumb = new URL('t/' + sid, location.href).href; await cache.put(localThumb, t); }
+    } catch {}
+    const entry = { id: it.id, src: it.src, title: it.title, by: it.by, license: it.license, page: it.page,
+      key, localThumb, mime: f.mime, size: got, at: Date.now() };
+    lib = [entry, ...lib.filter(l => l.id !== it.id)];
+    store.set('lib', lib);
+    drawResults(); drawLib();
+    if (current === it) { setMode(entry); note('Tersimpan. Video ini sekarang bisa ditonton tanpa internet dari tab Unduhan.'); }
+  } catch (e) {
+    await cache.delete(key);
+    note(ac.signal.aborted ? 'Unduhan dibatalkan.'
+      : e.name === 'QuotaExceededError' ? 'Penyimpanan penuh. Hapus unduhan lama, lalu coba lagi.'
+      : `Unduhan gagal (${e.message}). Server sumber mungkin menolak unduhan dari browser; coba kualitas lain atau buka halaman sumbernya.`);
+  } finally {
+    abort = null; btn.textContent = 'Simpan offline'; prog.hidden = true;
+  }
+}
+
+async function exportFile() {
+  const s = lib.find(l => l.id === current?.id); if (!s) return;
+  const r = await (await caches.open(MEDIA)).match(s.key);
+  if (!r) return note('Berkas offline tidak ditemukan. Hapus unduhan ini lalu simpan ulang.');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(await r.blob());
+  a.download = s.title.replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 80) + ext(s.mime || '');
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+async function remove() {
+  const s = lib.find(l => l.id === current?.id); if (!s) return;
+  const c = await caches.open(MEDIA);
+  await c.delete(s.key);
+  if (s.localThumb) await c.delete(s.localThumb);
+  lib = lib.filter(l => l.id !== s.id);
+  store.set('lib', lib);
+  $('#player').close();
+  drawResults(); drawLib();
+}
+
+/* ---------- Event ---------- */
+$('#f').onsubmit = e => { e.preventDefault(); query = $('#q').value.trim(); tab('cari'); search(false); };
+$('#more').onclick = () => search(true);
+$('#chips').onclick = e => {
+  const k = e.target.dataset.src; if (!k) return;
+  on = on.includes(k) ? on.filter(x => x !== k) : [...on, k];
+  store.set('src', on); drawChips();
+};
+$('#grid').onclick = e => { const c = e.target.closest('.card'); if (c) show(results[c.dataset.i]); };
+$('#libgrid').onclick = e => { const c = e.target.closest('.card'); if (c) show(lib[c.dataset.i]); };
+document.querySelector('.tabs').onclick = e => { if (e.target.dataset.tab) tab(e.target.dataset.tab); };
+$('#p-q').onchange = () => { if (!embedded && files[$('#p-q').value]) playUrl(files[$('#p-q').value].url); };
+$('#p-save').onclick = save;
+$('#p-export').onclick = exportFile;
+$('#p-del').onclick = remove;
+$('#p-close').onclick = () => $('#player').close();
+$('#player').addEventListener('close', () => { abort?.abort(); $('#stage').innerHTML = ''; current = null; });
+addEventListener('offline', () => { tab('unduhan'); });
+
+let installEvt;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#install').hidden = false; });
+$('#install').onclick = async () => { await installEvt?.prompt(); $('#install').hidden = true; };
+
+drawChips();
+if (!navigator.onLine) tab('unduhan');
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
