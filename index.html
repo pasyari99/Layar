@@ -420,3 +420,12 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 </body>
 </html>
+{
+  const c = Object.assign(document.createElement('canvas'), { width: 180, height: 180 });
+  const g = c.getContext('2d');
+  g.fillStyle = '#141c33'; g.fillRect(0, 0, 180, 180);
+  g.fillStyle = '#ffd23f'; g.fillRect(40, 110, 6, 36); g.fillRect(134, 110, 6, 36);
+  g.fillStyle = '#f2f4f9'; g.fillRect(34, 40, 112, 72);
+  g.fillStyle = '#141c33'; g.beginPath(); g.moveTo(80, 60); g.lineTo(80, 92); g.lineTo(106, 76); g.fill();
+  document.querySelector('link[rel="apple-touch-icon"]').href = c.toDataURL('image/png');
+}
